@@ -91,7 +91,7 @@ const DEFAULT_FETCH_MAX_CHARS = 20_000;
 const DEFAULT_FETCH_MAX_REDIRECTS = 3;
 const DEFAULT_ERROR_MAX_CHARS = 4_000;
 const DEFAULT_FETCH_USER_AGENT =
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
 // ============================================================================
 // Cache (identical to OpenClaw)
@@ -310,9 +310,11 @@ async function runWebFetch(params: {
     maxRedirects: params.maxRedirects,
     timeoutMs: params.timeoutSeconds * 1000,
     headers: {
-      Accept: "*/*",
-      "User-Agent": params.userAgent,
-      "Accept-Language": "en-US,en;q=0.9",
+      Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'User-Agent': params.userAgent,
+      'Accept-Language': 'en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7',
+      'Cache-Control': 'no-cache',
+      Pragma: 'no-cache',
     },
   });
 

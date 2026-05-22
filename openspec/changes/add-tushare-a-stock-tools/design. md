@@ -1,0 +1,95 @@
+# Design: 转型为中国金融数据平台
+
+## 架构设计
+
+### 新目录结构
+
+```
+src/tools/finance/
+├── tushare/                    # A股数据 (已实现)
+│   ├── client. ts              # Tushare API 客户端
+│   ├── a-stock-price. ts       # A股行情
+│   ├── a-stock-metrics. ts     # A股指标
+│   ├── a-stock-income. ts      # 利润表
+│   ├── a-stock-balance. ts     # 资产负债表
+│   ├── a-stock-cashflow. ts    # 现金流量表
+│   ├── a-stock-indicator. ts   # 财务指标
+│   ├── a-stock-company. ts     # 公司信息
+│   ├── meta-tool. ts           # A股元工具
+│   └── index. ts               # 导出
+│
+├── akshare/                    # 新增: 港股 + A股补充
+│   ├── client. ts              # AKShare Python 封装
+│   ├── hk-stock-price. ts      # 港股行情
+│   ├── hk-stock-info. ts       # 港股信息
+│   ├── china-realtime. ts      # A股实时行情
+│   ├── china-kline. ts         # A股/港股K线
+│   ├── moneyflow. ts           # 资金流向
+│   ├── macro. ts               # 宏观经济
+│   ├── meta-tool. ts           # 元工具
+│   └── index. ts               # 导出
+│
+└── index. ts                   # 统一导出
+```
+
+### 搜索模块
+
+```
+src/tools/search/
+├── brave. ts                   # 新增: Brave Search
+├── index. ts                   # 搜索入口
+└── (移除 exa/perplexity/tavily)
+```
+
+### Ticker 识别规则
+
+| 市场 | 格式 | 示例 | 识别方式 |
+|------|------|------|----------|
+| A股-上海 | `sh.600000` | sh.600000 | 6开头 |
+| A股-深圳 | `sz.00xxxx` / `sz.30xxxx` | sz.000001 | 00/30开头 |
+| 港股 | `hk.00700` / `00700.HK` | hk.00700 | 5位数字或 HK结尾 |
+
+## AKShare 封装方式
+
+AKShare 是 Python 库，需要通过子进程调用：
+
+```typescript
+// client.ts
+async function akshare<T>(func: string, ...args: string[]): Promise<T> {
+  const script = `
+import json
+import akshare as ak
+result = ak.${func}(${args.map(a => `"${a}"`).join(', ')})
+print(json.dumps(result))
+  `;
+  const result = await execPython(script);
+  return JSON.parse(result);
+}
+```
+
+## 移除的代码
+
+需要删除/注释的文件：
+- `src/tools/finance/api. ts` (Financial Datasets)
+- `src/tools/finance/stock-price.ts` (部分)
+- `src/tools/finance/fundamentals.ts`
+- `src/tools/search/exa.ts`
+- `src/tools/search/perplexity.ts`
+- `src/tools/search/tavily.ts`
+
+## 环境变量
+
+新增：
+```
+TUSHARE_TOKEN=xxx          # 已配置
+AKSHARE_TOKEN=             # 免费，不需要token
+BRAVE_API_KEY=xxx          # 免费注册获取
+```
+
+移除：
+```
+FINANCIAL_DATASETS_API_KEY
+EXASEARCH_API_KEY
+PERPLEXITY_API_KEY
+TAVILY_API_KEY
+```

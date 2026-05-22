@@ -1,6 +1,36 @@
 import { StructuredToolInterface } from '@langchain/core/tools';
 import { createGetFinancials, createGetMarketData, createReadFilings, createScreenStocks } from './finance/index.js';
-import { exaSearch, perplexitySearch, tavilySearch, WEB_SEARCH_DESCRIPTION, xSearchTool, X_SEARCH_DESCRIPTION } from './search/index.js';
+import { createGetAStockFinancials } from './finance/tushare/index.js';
+import {
+  getAStockPrice,
+  getAStockPrices,
+  A_STOCK_PRICE_DESCRIPTION,
+  getAStockMetrics,
+  A_STOCK_METRICS_DESCRIPTION,
+  getAStockIncome,
+  A_STOCK_INCOME_DESCRIPTION,
+  getAStockBalance,
+  A_STOCK_BALANCE_DESCRIPTION,
+  getAStockCashflow,
+  A_STOCK_CASHFLOW_DESCRIPTION,
+  getAStockIndicator,
+  A_STOCK_INDICATOR_DESCRIPTION,
+  getAStockCompany,
+  A_STOCK_COMPANY_DESCRIPTION,
+} from './finance/tushare/index.js';
+import {
+  createGetHkStockFinancials,
+  getHkStockPrice,
+  HK_STOCK_PRICE_DESCRIPTION,
+  getHkStockMetrics,
+  HK_STOCK_METRICS_DESCRIPTION,
+  getHkStockCompany,
+  HK_STOCK_COMPANY_DESCRIPTION,
+  getHkStockFinancials,
+  HK_STOCK_FINANCIALS_DESCRIPTION,
+  isAkshareBridgeInstalled,
+} from './finance/akshare/index.js';
+import { exaSearch, perplexitySearch, tavilySearch, ddgSearch, bingSearch, WEB_SEARCH_DESCRIPTION, xSearchTool, X_SEARCH_DESCRIPTION } from './search/index.js';
 import { skillTool, SKILL_TOOL_DESCRIPTION } from './skill.js';
 import { webFetchTool, WEB_FETCH_DESCRIPTION } from './fetch/web-fetch.js';
 import { browserTool, BROWSER_DESCRIPTION } from './browser/browser.js';
@@ -48,6 +78,116 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       compactDescription: 'Financial statements, metrics, and analyst estimates. Handles multi-company/multi-metric queries in one call.',
       concurrencySafe: true,
     },
+    {
+      name: 'get_a_stock_financials',
+      tool: createGetAStockFinancials(model),
+      description: 'Intelligent meta-tool for retrieving A-share (Chinese stock) financial data. Use for A-share tickers like 600000, 00xxxx, 300xxx.',
+      compactDescription: 'A-share (Chinese) financial data: income, balance sheet, cash flow, metrics, company info.',
+      concurrencySafe: true,
+    },
+    {
+      name: 'get_a_stock_price',
+      tool: getAStockPrice,
+      description: A_STOCK_PRICE_DESCRIPTION,
+      compactDescription: 'A-share stock price and historical data. Supports Shanghai (sh.600000) and Shenzhen (sz.00xxxx) markets.',
+      concurrencySafe: true,
+    },
+    {
+      name: 'get_a_stock_prices',
+      tool: getAStockPrices,
+      description: '批量获取多只 A股历史价格数据',
+      compactDescription: 'Batch A-share historical prices for multiple tickers.',
+      concurrencySafe: true,
+    },
+    {
+      name: 'get_a_stock_metrics',
+      tool: getAStockMetrics,
+      description: A_STOCK_METRICS_DESCRIPTION,
+      compactDescription: 'A-share stock metrics: PE, PB, market cap, turnover rate.',
+      concurrencySafe: true,
+    },
+    {
+      name: 'get_a_stock_income',
+      tool: getAStockIncome,
+      description: A_STOCK_INCOME_DESCRIPTION,
+      compactDescription: 'A-share income statement (revenue, net profit, EPS).',
+      concurrencySafe: true,
+    },
+    {
+      name: 'get_a_stock_balance',
+      tool: getAStockBalance,
+      description: A_STOCK_BALANCE_DESCRIPTION,
+      compactDescription: 'A-share balance sheet (assets, liabilities, equity).',
+      concurrencySafe: true,
+    },
+    {
+      name: 'get_a_stock_cashflow',
+      tool: getAStockCashflow,
+      description: A_STOCK_CASHFLOW_DESCRIPTION,
+      compactDescription: 'A-share cash flow statement (operating, investing, financing).',
+      concurrencySafe: true,
+    },
+    {
+      name: 'get_a_stock_indicator',
+      tool: getAStockIndicator,
+      description: A_STOCK_INDICATOR_DESCRIPTION,
+      compactDescription: 'A-share financial indicators: ROE, gross margin, net profit margin.',
+      concurrencySafe: true,
+    },
+    {
+      name: 'get_a_stock_company',
+      tool: getAStockCompany,
+      description: A_STOCK_COMPANY_DESCRIPTION,
+      compactDescription: 'A-share company basic information.',
+      concurrencySafe: true,
+    },
+
+    // ── Hong Kong Stock Tools (AKShare) ──
+    ...(isAkshareBridgeInstalled()
+      ? [
+          {
+            name: 'get_hk_stock_financials',
+            tool: createGetHkStockFinancials(model),
+            description:
+              'Intelligent meta-tool for retrieving Hong Kong stock financial data. Use for HK tickers like 00700 (Tencent), 09988 (Alibaba), 00005 (HSBC).',
+            compactDescription:
+              'HK stock financial data: prices, metrics, multi-period financial analysis, company profile.',
+            concurrencySafe: true,
+          } as RegisteredTool,
+          {
+            name: 'get_hk_stock_price',
+            tool: getHkStockPrice,
+            description: HK_STOCK_PRICE_DESCRIPTION,
+            compactDescription: 'HK stock daily price data (OHLCV) from AKShare.',
+            concurrencySafe: true,
+          } as RegisteredTool,
+          {
+            name: 'get_hk_stock_metrics',
+            tool: getHkStockMetrics,
+            description: HK_STOCK_METRICS_DESCRIPTION,
+            compactDescription:
+              'HK stock financial metrics snapshot: PE, PB, ROE, EPS, dividend yield, market cap.',
+            concurrencySafe: true,
+          } as RegisteredTool,
+          {
+            name: 'get_hk_stock_company',
+            tool: getHkStockCompany,
+            description: HK_STOCK_COMPANY_DESCRIPTION,
+            compactDescription:
+              'HK stock company profile: industry, chairman, employees, business description.',
+            concurrencySafe: true,
+          } as RegisteredTool,
+          {
+            name: 'get_hk_stock_financial_analysis',
+            tool: getHkStockFinancials,
+            description: HK_STOCK_FINANCIALS_DESCRIPTION,
+            compactDescription:
+              'HK stock multi-period financial trend: revenue, profit, margins, ROE, growth rates.',
+            concurrencySafe: true,
+          } as RegisteredTool,
+        ]
+      : []),
+
     {
       name: 'get_market_data',
       tool: createGetMarketData(model),
@@ -141,8 +281,18 @@ export function getToolRegistry(model: string): RegisteredTool[] {
     },
   ];
 
-  // Include web_search if Exa, Perplexity, or Tavily API key is configured (Exa → Perplexity → Tavily)
-  if (process.env.EXASEARCH_API_KEY) {
+  // Helper: detect placeholder/fake API keys (e.g. "your-exa-api-key", "your-X-bearer-token")
+  const isValidApiKey = (value: string | undefined): boolean => {
+    if (!value || value.length < 8) return false;
+    const lower = value.toLowerCase();
+    if (lower.startsWith('your-') || lower.startsWith('your_')) return false;
+    if (lower === 'placeholder' || lower === 'test' || lower === 'xxx') return false;
+    return true;
+  };
+
+  // Include web_search: prefer paid APIs when configured, fall back to free search
+  // Priority: Exa → Perplexity → Tavily → Bing (free, works in China) → DuckDuckGo (free)
+  if (isValidApiKey(process.env.EXASEARCH_API_KEY)) {
     tools.push({
       name: 'web_search',
       tool: exaSearch,
@@ -150,7 +300,7 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       compactDescription: 'Search the web for current information. Returns titles, URLs, and highlights.',
       concurrencySafe: true,
     });
-  } else if (process.env.PERPLEXITY_API_KEY) {
+  } else if (isValidApiKey(process.env.PERPLEXITY_API_KEY)) {
     tools.push({
       name: 'web_search',
       tool: perplexitySearch,
@@ -158,7 +308,7 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       compactDescription: 'Search the web for current information. Returns an answer with citations.',
       concurrencySafe: true,
     });
-  } else if (process.env.TAVILY_API_KEY) {
+  } else if (isValidApiKey(process.env.TAVILY_API_KEY)) {
     tools.push({
       name: 'web_search',
       tool: tavilySearch,
@@ -166,9 +316,27 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       compactDescription: 'Search the web for current information. Returns titles, URLs, and snippets.',
       concurrencySafe: true,
     });
+  } else if (process.env.DDG_ENABLED) {
+    // DuckDuckGo (opt-in for users outside China)
+    tools.push({
+      name: 'web_search',
+      tool: ddgSearch,
+      description: WEB_SEARCH_DESCRIPTION,
+      compactDescription: 'Search the web for current information. Free DuckDuckGo search.',
+      concurrencySafe: true,
+    });
+  } else {
+    // Default fallback: Bing (free, no key, works from China)
+    tools.push({
+      name: 'web_search',
+      tool: bingSearch,
+      description: WEB_SEARCH_DESCRIPTION,
+      compactDescription: 'Search the web for current information. Free Bing search, returns titles, URLs, and snippets.',
+      concurrencySafe: true,
+    });
   }
 
-  if (process.env.X_BEARER_TOKEN) {
+  if (isValidApiKey(process.env.X_BEARER_TOKEN)) {
     tools.push({
       name: 'x_search',
       tool: xSearchTool,

@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(openspec status *)",
+      "Bash(openspec list *)",
+      "Bash(openspec new *)",
+      "Bash(git checkout *)",
+      "Bash(sed -i \"s/createGetFinancials, createGetMarketData/createGetFinancials, createGetMarketData/\" src/tools/registry.ts)",
+      "Bash(sed -i \"2a import { createGetAStockFinancials } from './finance/tushare/index.js';\" src/tools/registry.ts)",
+      "Bash(bun run *)",
+      "Bash(python -c ' *)",
+      "Bash(node -e ' *)",
+      "Bash(awk 'NR==110 {gsub\\(/A_STOCK_TOOL_MAP\\\\.get\\\\\\(tc\\\\.name\\\\\\)/, \"A_STOCK_TOOL_MAP.get\\(tc.name\\) as any\"\\)} 1' src/tools/finance/tushare/meta- tool. ts)",
+      "Bash(mv src/tools/finance/tushare/meta-tool-fixed.ts src/tools/finance/tushare/meta- tool. ts)",
+      "Bash(rm D:/agentcode/dexter/ src/ tools/ finance/ tushare/ meta- tool- fixed. ts)",
+      "Bash(cd D:/ agentcode/dexter)",
+      "Bash(python3)",
+      "Bash(bun -e ' *)",
+      "Bash(openspec instructions *)",
+      "Bash(npx tsc *)",
+      "Bash(npm run *)",
+      "Bash(bun -e \"import { normalizeTsCode } from './src/tools/finance/tushare/client.ts'; console.log\\('结果:', normalizeTsCode\\('300308'\\)\\);\")"
+    ]
+  }
+}
