@@ -187,15 +187,32 @@ export function formatInsiderTrades(data: unknown): string {
   return lines.join('\n');
 }
 
-export function formatAnalystEstimates(data: unknown): string {
+export function formatInstitutionalHoldings(data: unknown, args?: Rec): string {
   const items = Array.isArray(data) ? data : [];
-  if (items.length === 0) return 'No analyst estimates available.';
-  const lines = ['Analyst Estimates', ''];
-  lines.push('| Period | Est. Revenue | Est. EPS | # Analysts |');
-  lines.push('|--------|-------------|----------|------------|');
-  for (const row of items as Rec[]) {
-    lines.push(`| ${fmtDate(row.report_period ?? row.date)} | ${fmtNum(row.estimated_revenue_avg ?? row.revenue_estimate)} | ${fmtPrice(row.estimated_eps_avg ?? row.eps_estimate)} | ${row.number_of_analysts ?? '—'} |`);
+  if (items.length === 0) return 'No institutional holdings found.';
+  const byTicker = Boolean(args?.ticker);
+  const lines: string[] = [];
+  if (byTicker) {
+    const ticker = (args?.ticker as string)?.toUpperCase() ?? '';
+    lines.push(`Institutional Holders — ${ticker}`, '');
+    lines.push('| Filer | Shares | Value (USD) | Report |');
+    lines.push('|-------|--------|-------------|--------|');
+    for (const row of items.slice(0, 15) as Rec[]) {
+      lines.push(`| ${row.filer_name ?? row.filer_cik ?? '—'} | ${fmtNum(row.shares)} | ${fmtNum(row.value_usd)} | ${fmtDate(row.report_period)} |`);
+    }
+  } else {
+    const filer = ((items[0] as Rec)?.filer_name as string)
+      ?? (args?.filer_name as string)
+      ?? (args?.filer_cik as string)
+      ?? '';
+    lines.push(`13F Holdings — ${filer}`, '');
+    lines.push('| Issuer | Ticker | Shares | Value (USD) | Report |');
+    lines.push('|--------|--------|--------|-------------|--------|');
+    for (const row of items.slice(0, 15) as Rec[]) {
+      lines.push(`| ${row.name_of_issuer ?? '—'} | ${row.ticker ?? '—'} | ${fmtNum(row.shares)} | ${fmtNum(row.value_usd)} | ${fmtDate(row.report_period)} |`);
+    }
   }
+  if (items.length > 15) lines.push('', `(showing 15 of ${items.length})`);
   return lines.join('\n');
 }
 
@@ -287,7 +304,6 @@ export const FINANCIAL_FORMATTERS: Record<string, (data: unknown, args?: Rec) =>
   get_all_financial_statements: formatAllFinancials,
   get_key_ratios: formatKeyRatios,
   get_historical_key_ratios: formatHistoricalKeyRatios,
-  get_analyst_estimates: formatAnalystEstimates,
   get_earnings: formatEarnings,
   get_financial_segments: formatFinancialSegments,
 };
@@ -299,4 +315,5 @@ export const MARKET_DATA_FORMATTERS: Record<string, (data: unknown, args?: Rec) 
   get_crypto_prices: formatStockPrices,
   get_company_news: formatNews,
   get_insider_trades: formatInsiderTrades,
+  get_institutional_holdings: formatInstitutionalHoldings,
 };

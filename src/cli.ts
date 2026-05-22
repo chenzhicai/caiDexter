@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import { Container, ProcessTerminal, Spacer, Text, TUI } from '@mariozechner/pi-tui';
 import type {
   ApprovalDecision,
@@ -5,13 +6,20 @@ import type {
   ToolErrorEvent,
   ToolStartEvent,
 } from './agent/index.js';
-import { getApiKeyNameForProvider, getProviderDisplayName } from './utils/env.js';
+import {
+  getApiKeyNameForProvider,
+  getApiKeyNameForSearchProvider,
+  getProviderDisplayName,
+  getSearchProviderDisplayName,
+} from './utils/env.js';
+import { dexterPath } from './utils/paths.js';
 import { defaultQueue } from './utils/message-queue.js';
 import { logger } from './utils/logger.js';
 import {
   AgentRunnerController,
   InputHistoryController,
   ModelSelectionController,
+  SearchSelectionController,
 } from './controllers/index.js';
 import {
   ApiKeyInputComponent,
@@ -25,6 +33,7 @@ import {
   createApiKeyConfirmSelector,
   createModelSelector,
   createProviderSelector,
+  createSearchProviderSelector,
 } from './components/index.js';
 import { editorTheme, theme } from './theme.js';
 import { matchCommands, type SlashCommand } from './commands/index.js';
@@ -63,6 +72,7 @@ function summarizeToolResult(tool: string, args: Record<string, unknown>, result
       if (typeof parsed.data === 'object') {
         const keys = Object.keys(parsed.data).filter((key) => !key.startsWith('_'));
         if (tool === 'get_financials' || tool === 'get_market_data' || tool === 'stock_screener') {
+          if (keys.length === 0) return 'Done';
           return keys.length === 1 ? 'Called 1 data source' : `Called ${keys.length} data sources`;
         }
         if (tool === 'web_search') {
@@ -189,6 +199,10 @@ export async function runCli() {
     renderSelectionOverlay();
     tui.requestRender();
   });
+  const searchSelection = new SearchSelectionController(onError, () => {
+    renderSelectionOverlay();
+    tui.requestRender();
+  });
 
   // Incremental history tracking
   let lastRenderedEventCount = 0;
@@ -196,6 +210,7 @@ export async function runCli() {
   let lastRenderedAnswer = false;
   let lastRenderedQueryId: string | null = null;
   const finalizedToolIds = new Set<string>();
+  let lastPendingApproval: { tool: string; args: Record<string, unknown> } | null = null;
 
   agentRunner = new AgentRunnerController(
     { model: modelSelection.model, modelProvider: modelSelection.provider, maxIterations: 10 },
@@ -260,6 +275,10 @@ export async function runCli() {
 
       workingIndicator.setState(agentRunner.workingState);
       updateView();
+      if (agentRunner.pendingApproval !== lastPendingApproval) {
+        lastPendingApproval = agentRunner.pendingApproval;
+        renderSelectionOverlay();
+      }
       throttledRender();
     },
   );
@@ -311,6 +330,7 @@ export async function runCli() {
   esc          Interrupt query / clear input
   ctrl+c       Exit Dexter
   /model       Switch LLM provider and model
+  /search      Choose preferred web search provider
   /rules       Show research rules
   /clear       Clear conversation
   ↑ / ↓        Navigate input history`;
@@ -320,9 +340,22 @@ export async function runCli() {
       case 'model':
         modelSelection.startSelection();
         break;
-      case 'rules':
-        await agentRunner.runQuery('Show me my current research rules from .dexter/RULES.md');
+      case 'search':
+        searchSelection.startSelection();
         break;
+      case 'rules': {
+        try {
+          const rulesContent = await readFile(dexterPath('RULES.md'), 'utf-8');
+          chatLog.addChild(new Spacer(1));
+          chatLog.addChild(new Text(theme.muted('Research Rules:'), 0, 0));
+          chatLog.addChild(new Text(rulesContent, 0, 0));
+        } catch {
+          chatLog.addChild(new Spacer(1));
+          chatLog.addChild(new Text(theme.muted('No research rules set. Use "add a rule <text>" to create one.'), 0, 0));
+        }
+        tui.requestRender();
+        break;
+      }
       case 'clear':
         chatLog.clearAll();
         tui.requestRender();
@@ -375,7 +408,11 @@ export async function runCli() {
       return;
     }
 
-    if (modelSelection.isInSelectionFlow() || agentRunner.pendingApproval) {
+    if (
+      modelSelection.isInSelectionFlow() ||
+      searchSelection.isInSelectionFlow() ||
+      agentRunner.pendingApproval
+    ) {
       return;
     }
 
@@ -427,6 +464,10 @@ export async function runCli() {
       modelSelection.cancelSelection();
       return;
     }
+    if (searchSelection.isInSelectionFlow()) {
+      searchSelection.cancelSelection();
+      return;
+    }
     if (agentRunner.isProcessing || agentRunner.pendingApproval) {
       agentRunner.cancelExecution();
       return;
@@ -454,7 +495,11 @@ export async function runCli() {
         queueLength: defaultQueue.length(),
       });
     }
-    if (!modelSelection.isInSelectionFlow() && !agentRunner.pendingApproval) {
+    if (
+      !modelSelection.isInSelectionFlow() &&
+      !searchSelection.isInSelectionFlow() &&
+      !agentRunner.pendingApproval
+    ) {
       tui.setFocus(editor);
     }
   };
@@ -495,7 +540,12 @@ export async function runCli() {
 
   const renderSelectionOverlay = () => {
     const state = modelSelection.state;
-    if (state.appState === 'idle' && !agentRunner.pendingApproval) {
+    const searchState = searchSelection.state;
+    if (
+      state.appState === 'idle' &&
+      searchState.appState === 'idle' &&
+      !agentRunner.pendingApproval
+    ) {
       restoreMainView();
       tui.requestRender();
       return;
@@ -584,6 +634,51 @@ export async function runCli() {
         'Enter to confirm · Esc to cancel',
         input,
       );
+      return;
+    }
+
+    if (searchState.appState === 'provider_select') {
+      const selector = createSearchProviderSelector(
+        searchState.preferredProvider,
+        (providerId) => searchSelection.handleProviderSelect(providerId),
+        () => searchSelection.cancelSelection(),
+      );
+      showScreenView(
+        'Select web search provider',
+        'Dexter tries your preferred provider first and falls back to the others.',
+        selector,
+        'Enter to confirm · esc to exit',
+        selector,
+      );
+      return;
+    }
+
+    if (searchState.appState === 'api_key_confirm' && searchState.pendingProvider) {
+      const selector = createApiKeyConfirmSelector((wantsToSet) =>
+        searchSelection.handleApiKeyConfirm(wantsToSet),
+      );
+      showScreenView(
+        'Set API Key',
+        `Would you like to set your ${getSearchProviderDisplayName(searchState.pendingProvider)} API key?`,
+        selector,
+        'Enter to confirm · esc to decline',
+        selector,
+      );
+      return;
+    }
+
+    if (searchState.appState === 'api_key_input' && searchState.pendingProvider) {
+      const input = new ApiKeyInputComponent(true);
+      input.onSubmit = (apiKey) => searchSelection.handleApiKeySubmit(apiKey);
+      input.onCancel = () => searchSelection.handleApiKeySubmit(null);
+      const apiKeyName = getApiKeyNameForSearchProvider(searchState.pendingProvider);
+      showScreenView(
+        `Enter ${getSearchProviderDisplayName(searchState.pendingProvider)} API Key`,
+        `(${apiKeyName})`,
+        input,
+        'Enter to confirm · Esc to cancel',
+        input,
+      );
     }
   };
 
@@ -591,6 +686,10 @@ export async function runCli() {
   editor.onEscape = () => {
     if (modelSelection.isInSelectionFlow()) {
       modelSelection.cancelSelection();
+      return;
+    }
+    if (searchSelection.isInSelectionFlow()) {
+      searchSelection.cancelSelection();
       return;
     }
     if (agentRunner.isProcessing || agentRunner.pendingApproval) {

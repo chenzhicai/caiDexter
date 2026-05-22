@@ -30,7 +30,10 @@ import {
   HK_STOCK_FINANCIALS_DESCRIPTION,
   isAkshareBridgeInstalled,
 } from './finance/akshare/index.js';
-import { exaSearch, perplexitySearch, tavilySearch, ddgSearch, bingSearch, WEB_SEARCH_DESCRIPTION, xSearchTool, X_SEARCH_DESCRIPTION } from './search/index.js';
+import { exaSearch, perplexitySearch, tavilySearch, ddgSearch, bingSearch, langSearch, WEB_SEARCH_DESCRIPTION, xSearchTool, X_SEARCH_DESCRIPTION } from './search/index.js';
+import { createWebSearchTool, type WebSearchProvider } from './search/web-search.js';
+import { getSetting } from '../utils/config.js';
+import type { SearchProviderId } from '../utils/env.js';
 import { skillTool, SKILL_TOOL_DESCRIPTION } from './skill.js';
 import { webFetchTool, WEB_FETCH_DESCRIPTION } from './fetch/web-fetch.js';
 import { browserTool, BROWSER_DESCRIPTION } from './browser/browser.js';
@@ -75,7 +78,7 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       name: 'get_financials',
       tool: createGetFinancials(model),
       description: GET_FINANCIALS_DESCRIPTION,
-      compactDescription: 'Financial statements, metrics, and analyst estimates. Handles multi-company/multi-metric queries in one call.',
+      compactDescription: 'Financial statements and metrics. Handles multi-company/multi-metric queries in one call.',
       concurrencySafe: true,
     },
     {
@@ -281,37 +284,34 @@ export function getToolRegistry(model: string): RegisteredTool[] {
     },
   ];
 
-  // Helper: detect placeholder/fake API keys (e.g. "your-exa-api-key", "your-X-bearer-token")
-  const isValidApiKey = (value: string | undefined): boolean => {
-    if (!value || value.length < 8) return false;
-    const lower = value.toLowerCase();
-    if (lower.startsWith('your-') || lower.startsWith('your_')) return false;
-    if (lower === 'placeholder' || lower === 'test' || lower === 'xxx') return false;
-    return true;
-  };
+  // Build web_search as a fallback chain over whichever providers have keys configured.
+  // The user's preferred provider (set via /search) is tried first; the others act as fallbacks.
+  const allWebSearchProviders: WebSearchProvider[] = [];
+  if (process.env.EXASEARCH_API_KEY) {
+    allWebSearchProviders.push({ id: 'exa', name: 'Exa', tool: exaSearch });
+  }
+  if (process.env.PERPLEXITY_API_KEY) {
+    allWebSearchProviders.push({ id: 'perplexity', name: 'Perplexity', tool: perplexitySearch });
+  }
+  if (process.env.TAVILY_API_KEY) {
+    allWebSearchProviders.push({ id: 'tavily', name: 'Tavily', tool: tavilySearch });
+  }
+  if (process.env.LANGSEARCH_API_KEY) {
+    allWebSearchProviders.push({ id: 'langsearch', name: 'LangSearch', tool: langSearch });
+  }
 
-  // Include web_search: prefer paid APIs when configured, fall back to free search
-  // Priority: Exa → Perplexity → Tavily → Bing (free, works in China) → DuckDuckGo (free)
-  if (isValidApiKey(process.env.EXASEARCH_API_KEY)) {
+  if (allWebSearchProviders.length > 0) {
+    const preferred = getSetting<SearchProviderId | undefined>('webSearchPreferredProvider', undefined);
+    const orderedProviders = preferred
+      ? [
+          ...allWebSearchProviders.filter((p) => p.id === preferred),
+          ...allWebSearchProviders.filter((p) => p.id !== preferred),
+        ]
+      : allWebSearchProviders;
+
     tools.push({
       name: 'web_search',
-      tool: exaSearch,
-      description: WEB_SEARCH_DESCRIPTION,
-      compactDescription: 'Search the web for current information. Returns titles, URLs, and highlights.',
-      concurrencySafe: true,
-    });
-  } else if (isValidApiKey(process.env.PERPLEXITY_API_KEY)) {
-    tools.push({
-      name: 'web_search',
-      tool: perplexitySearch,
-      description: WEB_SEARCH_DESCRIPTION,
-      compactDescription: 'Search the web for current information. Returns an answer with citations.',
-      concurrencySafe: true,
-    });
-  } else if (isValidApiKey(process.env.TAVILY_API_KEY)) {
-    tools.push({
-      name: 'web_search',
-      tool: tavilySearch,
+      tool: createWebSearchTool(orderedProviders),
       description: WEB_SEARCH_DESCRIPTION,
       compactDescription: 'Search the web for current information. Returns titles, URLs, and snippets.',
       concurrencySafe: true,
@@ -336,7 +336,7 @@ export function getToolRegistry(model: string): RegisteredTool[] {
     });
   }
 
-  if (isValidApiKey(process.env.X_BEARER_TOKEN)) {
+  if (process.env.X_BEARER_TOKEN) {
     tools.push({
       name: 'x_search',
       tool: xSearchTool,
