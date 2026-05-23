@@ -8,24 +8,24 @@ import { getSkill, discoverSkills } from '../skills/index.js';
  * Used in the system prompt to guide the LLM on when and how to use this tool.
  */
 export const SKILL_TOOL_DESCRIPTION = `
-Execute a skill to get specialized instructions for complex tasks.
+Execute a skill to get specialized instructions for a task. Skills provide authoritative workflows and data-source guidance.
 
 ## When to Use
 
-- When the user's query matches an available skill's description
-- For complex workflows that benefit from structured guidance (e.g., DCF valuation, financial reports)
-- When you need step-by-step instructions for a specialized task
+- IMMEDIATELY when the user's query matches an available skill's description. Check the Available Skills list before using any other tool.
+- For any financial data query that falls within a skill's domain — skills know which data sources to use and how to query them correctly
+- For structured workflows (e.g., DCF valuation, financial research)
+- When a skill offers a data source or capability that general tools don't cover (e.g., Wind financial data, X/Twitter research)
 
 ## When NOT to Use
 
-- For simple queries that don't require specialized workflows
-- When no available skill matches the task
 - If you've already invoked the skill for this query (don't invoke twice)
+- When absolutely no available skill matches the task
 
 ## Usage Notes
 
-- Invoke the skill IMMEDIATELY when relevant, as your first action
-- The skill returns instructions that you should follow to complete the task
+- Invoke the skill IMMEDIATELY when relevant, as your first action, before using any general-purpose tools
+- The skill returns instructions that tell you exactly which tools to use and how
 - Use the skill name exactly as listed in Available Skills
 - Pass any relevant arguments (like ticker symbols) via the args parameter
 `.trim();

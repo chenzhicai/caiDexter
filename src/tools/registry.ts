@@ -47,6 +47,7 @@ import { SCREEN_STOCKS_DESCRIPTION } from './finance/screen-stocks.js';
 import { heartbeatTool, HEARTBEAT_TOOL_DESCRIPTION } from './heartbeat/heartbeat-tool.js';
 import { cronTool, CRON_TOOL_DESCRIPTION } from './cron/cron-tool.js';
 import { memoryGetTool, MEMORY_GET_DESCRIPTION, memorySearchTool, MEMORY_SEARCH_DESCRIPTION, memoryUpdateTool, MEMORY_UPDATE_DESCRIPTION } from './memory/index.js';
+import { bashTool, BASH_TOOL_DESCRIPTION } from './bash.js';
 import { discoverSkills } from '../skills/index.js';
 
 /**
@@ -280,6 +281,13 @@ export function getToolRegistry(model: string): RegisteredTool[] {
       tool: memoryUpdateTool,
       description: MEMORY_UPDATE_DESCRIPTION,
       compactDescription: 'Add, edit, or delete persistent memory entries.',
+      concurrencySafe: false,
+    },
+    {
+      name: 'bash',
+      tool: bashTool,
+      description: BASH_TOOL_DESCRIPTION,
+      compactDescription: 'Execute a shell command and return stdout, stderr, and exit code. Requires user approval.',
       concurrencySafe: false,
     },
   ];

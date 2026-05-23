@@ -80,8 +80,9 @@ ${skillList}
 ## Skill Usage Policy
 
 - Check if available skills can help complete the task more effectively
-- When a skill is relevant, invoke it IMMEDIATELY as your first action
-- Skills provide specialized workflows for complex tasks (e.g., DCF valuation)
+- When a skill matches the user's request, invoke it IMMEDIATELY as your first action — before using any general-purpose tools
+- Skills provide authoritative data sources and specialized workflows that general tools cannot replicate
+- For financial data queries, always check skills first: they know which data source to use (Wind, Tushare, etc.)
 - Do not invoke a skill that has already been invoked for the current query`;
 }
 
